@@ -1,0 +1,80 @@
+---
+title: "HMM"
+author: "Katharina Fijan"
+date: "4/6/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE,
+                      message = FALSE)
+```
+
+
+## Load Data & Packages
+```{r}
+library(tidyverse)
+library(HMM)
+
+data <- read.table('../TPP_proteasome_correlations.csv', sep=',', header = TRUE)
+summary(data)
+```
+
+## Extract Data 
+```{r}
+complex1_df <- data %>% filter(bait == 'PSMA1', prey == 'PSMA2')
+complex2_df <- data %>% filter(bait == 'PSMB2', prey == 'PSMC5') 
+```
+
+
+## Initialize HMM Model - Default Values
+```{r}
+#usage/defaults: initHMM(States, Symbols, startProbs=NULL, transProbs=NULL, emissionProbs=NULL)
+states <- c("interaction", "no_interaction") #hidden states
+symbols <- as.character(seq(from = 0.0, to = 1.0, by = 0.1)) #observed states - needs to be character dtype or error is thrown
+pi <- NULL
+T_ <- NULL
+E_ <- NULL
+hmm <- initHMM(states, symbols) #initialized model
+print(hmm)
+```
+
+
+## Learn HMM - BaumWelch Algorithm
+```{r}
+#usage/defaults: baumWelch(hmm, observation, maxIterations=100, delta=1E-9, pseudoCount=0)
+
+observed_data <- as.character(unlist(abs(round(complex1_df$corr, 1)))) #list of observed correlation values 
+max_iterations <- 10000
+delta=1E-9
+
+learned_hmm <- baumWelch(hmm, observed_data, max_iterations, delta)
+print(learned_hmm$hmm)
+```
+
+
+## Initialize HMM Model - Define Parameters
+```{r}
+#usage/defaults: initHMM(States, Symbols, startProbs=NULL, transProbs=NULL, emissionProbs=NULL)
+states <- c("interaction", "no_interaction") #hidden states
+symbols <- as.character(seq(from = 0.0, to = 1.0, by = 0.1)) #"correlation" values
+pi <- c(0.5, 0.5)
+T_ <- matrix(c(0.5, 0.5, 0.5, 0.5), nrow=2)
+E_ <- learned_hmm$hmm$emissionProbs
+hmm2<- initHMM(states, symbols, pi, T_, E_) #initialized model
+print(hmm2)
+```
+
+## Learn HMM using Defined Params - BaumWelch Algorithm
+```{r}
+#usage/defaults: baumWelch(hmm, observation, maxIterations=100, delta=1E-9, pseudoCount=0)
+
+observed_data <- as.character(unlist(abs(round(complex2_df$corr, 1)))) #list of observed correlation values 
+max_iterations <- 10000
+delta=1E-20
+
+learned_hmm2 <- baumWelch(hmm2, observed_data)
+print(learned_hmm2$hmm)
+```
+
+
