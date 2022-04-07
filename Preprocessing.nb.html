@@ -1737,10 +1737,184 @@ pre code {
 
 
 <!-- rnb-text-begin -->
-<p>Sample File</p>
+<p><strong>Loading Inputs</strong></p>
+<p>#Library import</p>
 <!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeShyZWFkeGwpXG5saWJyYXJ5KGRhdGEudGFibGUpXG5saWJyYXJ5KGRwbHlyKVxubGlicmFyeShIbWlzYylcbmBgYCJ9 -->
+<pre class="r"><code>library(readxl)
+library(data.table)
+library(dplyr)
+library(Hmisc)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>#Import and shape sample data</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc2FtcGxlX2RhdGEgPSByZWFkX2V4Y2VsKFwiZGF0YS9UUFBfc2FtcGxlRGF0YS54bHN4XCIsIHNoZWV0ID0gXCJUYWJsZVMxXzJELVRQUFwiKVxuXG5zYW1wbGVfZGF0YSA9IGFzLmRhdGEudGFibGUoc2FtcGxlX2RhdGFbLGMoXCJnZW5lX25hbWVcIiwgXCJkZXNjcmlwdGlvblwiLCBcIlRlbXBlcmF0dXJlXCIsIFwiZWFybHlTLm1lZGlhblwiLCBcImxhdGVTLm1lZGlhblwiLCBcIlNfRzIubWVkaWFuXCIsIFwiTS5tZWRpYW5cIiwgXCJHMS5tZWRpYW5cIiwgXCJhc3luY2gubWVkaWFuXCIpXSlcblxuc2FtcGxlX2RhdGEgPSBtZWx0KHNhbXBsZV9kYXRhLCBpZC52YXJzID0gYyhcImdlbmVfbmFtZVwiLCBcImRlc2NyaXB0aW9uXCIsIFwiVGVtcGVyYXR1cmVcIiksIHZhcmlhYmxlLm5hbWUgPSBcInRcIiwgdmFsdWUubmFtZSA9IFwibWVkaWFuX2Z4XCIpXG5gYGAifQ== -->
+<pre class="r"><code>sample_data = read_excel(&quot;data/TPP_sampleData.xlsx&quot;, sheet = &quot;TableS1_2D-TPP&quot;)
 
-<div id="rmd-source-code">LS0tDQp0aXRsZTogIkRhdGFfUHJlcHJvY2Vzc2luZyINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNClNhbXBsZSBGaWxlDQoNCg==</div>
+sample_data = as.data.table(sample_data[,c(&quot;gene_name&quot;, &quot;description&quot;, &quot;Temperature&quot;, &quot;earlyS.median&quot;, &quot;lateS.median&quot;, &quot;S_G2.median&quot;, &quot;M.median&quot;, &quot;G1.median&quot;, &quot;asynch.median&quot;)])
+
+sample_data = melt(sample_data, id.vars = c(&quot;gene_name&quot;, &quot;description&quot;, &quot;Temperature&quot;), variable.name = &quot;t&quot;, value.name = &quot;median_fx&quot;)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>#Search Annotation Criteria fot limiting the genes that will be used to find interactions</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuI1JpYm9zb21lXG5sYXJnZV9yaWJvc29tYWwgPSBcIlJQTFwiXG5zbWFsbF9yaWJvc29tYWwgPSBcIlJQU1wiXG5cblxuI1Byb3RlYXNvbWVcbmNvcmVfcHJvdGVhc29tZSA9IGMoXCJQU01BXCIsIFwiUFNNQlwiKVxucmVndWxhdG9yeV9wcm90ZWFzb21lID0gYyhcIlBTTUNcIiwgXCJQU01EXCIpXG5hbHRfcmVndWxhdG9yeV9wcm90ZWFzb21lID0gXCJQU01FXCJcbnByb3RlYXNvbWVfYXNzZW1ibHlfY2hhcGVyb25lID0gXCJQU01HXCJcblxuXG4jRXhvc29tZVxuY29yZV9leG9zb21lID0gYyhcIkVYT1NDMVwiLCBcIkVYT1NDNFwiLCBcIkVYT1NDNVwiLCBcIkVYT1NDNlwiLCBcIkVYT1NDOFwiLCBcIkVYT1NDOVwiLCBcIkVYT1NDMlwiLCBcIkVYT1NDN1wiKVxucmVnX2V4b3NvbWUgPSBjKFwiRElTM1wiLCBcIkVYT1NDMTBcIilcblxuYGBgIn0= -->
+<pre class="r"><code>#Ribosome
+large_ribosomal = &quot;RPL&quot;
+small_ribosomal = &quot;RPS&quot;
+
+
+#Proteasome
+core_proteasome = c(&quot;PSMA&quot;, &quot;PSMB&quot;)
+regulatory_proteasome = c(&quot;PSMC&quot;, &quot;PSMD&quot;)
+alt_regulatory_proteasome = &quot;PSME&quot;
+proteasome_assembly_chaperone = &quot;PSMG&quot;
+
+
+#Exosome
+core_exosome = c(&quot;EXOSC1&quot;, &quot;EXOSC4&quot;, &quot;EXOSC5&quot;, &quot;EXOSC6&quot;, &quot;EXOSC8&quot;, &quot;EXOSC9&quot;, &quot;EXOSC2&quot;, &quot;EXOSC7&quot;)
+reg_exosome = c(&quot;DIS3&quot;, &quot;EXOSC10&quot;)
+</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p><strong>Analysis Functions</strong></p>
+<p>#Filter sample data Filters the sample data based on the previously determined filter criteria</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZmlsdGVyX2RhdGEgPSBmdW5jdGlvbihkYXRhLCBmaWx0ZXIsIGNvbnRhaW4gPSBUUlVFKSB7XG4gIFxuICB0YXJnZXRfbmFtZXMgPSBjKClcbiAgXG4gIGlmIChjb250YWluID09IFRSVUUpe1xuICAgIFxuICAgIGZvciAoaSBpbiBmaWx0ZXIpIHtcbiAgICAgIHggPSBkYXRhW2dyZXAoaSwgZGF0YSRnZW5lX25hbWUpLF1cbiAgICAgIHRhcmdldF9uYW1lcyA9IGModGFyZ2V0X25hbWVzLCB1bmlxdWUoeCRnZW5lX25hbWUpKVxuICAgIH1cbiAgICBcbiAgfSBlbHNlIHtcbiAgICB0YXJnZXRfbmFtZXMgPSBmaWx0ZXJcbiAgfVxuICByZXR1cm4odGFyZ2V0X25hbWVzKVxufVxuXG5maWx0ZXJfY3JpdGVyaWEgPSBjKGNvcmVfZXhvc29tZSwgcmVnX2V4b3NvbWUpXG5cbnRhcmdldF9wcm90ZWlucyA9IGZpbHRlcl9kYXRhKHNhbXBsZV9kYXRhLCBmaWx0ZXJfY3JpdGVyaWEsIGNvbnRhaW4gPSBUUlVFKVxudGFyZ2V0X3Byb3RlaW5zXG5gYGAifQ== -->
+<pre class="r"><code>filter_data = function(data, filter, contain = TRUE) {
+  
+  target_names = c()
+  
+  if (contain == TRUE){
+    
+    for (i in filter) {
+      x = data[grep(i, data$gene_name),]
+      target_names = c(target_names, unique(x$gene_name))
+    }
+    
+  } else {
+    target_names = filter
+  }
+  return(target_names)
+}
+
+filter_criteria = c(core_exosome, reg_exosome)
+
+target_proteins = filter_data(sample_data, filter_criteria, contain = TRUE)
+target_proteins</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>#Initialize DF The following function initializes a correlation dataframe for downstream analysis by converting the data into pairwise interactions.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuI2luaXRpYWxpemUgZGZcblxuSW5pdGlhbGl6ZV9Db3JERiA9IGZ1bmN0aW9uKHRhcmdldHMsIGRhdGEpIHtcbiAgXG4gIGZvciAoaSBpbiAxOihsZW5ndGgodGFyZ2V0cyktMSkpeyAjMTpcblxuICAgIGlmIChpID09IDEpe1xuICAgICAgY29ycl9kZiA9IGRhdGEuZnJhbWUoYmFpdCA9IHRhcmdldHNbaV0sIHByZXkgPSBjKHRhcmdldHNbKGkrMSk6bGVuZ3RoKHRhcmdldHMpXSkpXG4gICAgfSBlbHNlIHtcbiAgICAgIG5ld19yb3cgPSBkYXRhLmZyYW1lKGJhaXQgPSB0YXJnZXRzW2ldLCBwcmV5ID0gYyh0YXJnZXRzWyhpKzEpOmxlbmd0aCh0YXJnZXRzKV0pKVxuICAgICAgY29ycl9kZiA9IGJpbmRfcm93cyhjb3JyX2RmLCBuZXdfcm93KVxuICAgIH1cbiAgICBcbiAgfVxuICBcbiAgdGltZV9wb2ludHMgPSBkYXRhLmZyYW1lKHQgPSB1bmlxdWUoZGF0YSR0KSlcbiAgY29ycl9kZiA9IG1lcmdlKGNvcnJfZGYsIHRpbWVfcG9pbnRzKVxuICBjb3JyX2RmJGNvcnIgPSAwXG4gIFxuICByZXR1cm4oY29ycl9kZilcbn1cblxuXG5jb3JyX2RmID0gSW5pdGlhbGl6ZV9Db3JERih0YXJnZXRfcHJvdGVpbnMsIHNhbXBsZV9kYXRhKVxuY29ycl9kZlxuXG5gYGAifQ== -->
+<pre class="r"><code>#initialize df
+
+Initialize_CorDF = function(targets, data) {
+  
+  for (i in 1:(length(targets)-1)){ #1:
+
+    if (i == 1){
+      corr_df = data.frame(bait = targets[i], prey = c(targets[(i+1):length(targets)]))
+    } else {
+      new_row = data.frame(bait = targets[i], prey = c(targets[(i+1):length(targets)]))
+      corr_df = bind_rows(corr_df, new_row)
+    }
+    
+  }
+  
+  time_points = data.frame(t = unique(data$t))
+  corr_df = merge(corr_df, time_points)
+  corr_df$corr = 0
+  
+  return(corr_df)
+}
+
+
+corr_df = Initialize_CorDF(target_proteins, sample_data)
+corr_df
+</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>#Find all correlation values The following function adds a pairwise correlation between the bait and the prey</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuY29ycl90YWJsZSA9IGNvcnJfZGZcblxuQXBwZW5kX0NvciA9IGZ1bmN0aW9uKGNvcnJfdGFibGUsIGRhdGEpIHtcbiAgXG4gIGZvciAoaSBpbiAxOm5yb3coY29ycl90YWJsZSkpIHsgI1xuICAgIFxuICAgICNjaGVjayBwcm9ncmVzc1xuICAgIGlmIChpICUlIDEwMCA9PSAwKSB7XG4gICAgICBwcmludChwYXN0ZTAoaSxcIi9cIixucm93KGNvcnJfdGFibGUpKSlcbiAgICB9XG4gICAgXG4gICAgI2ZpcnN0IGZpbHRlciBieSBzdGFnZVxuICAgIHRpbWVfcG9pbnQgPSBjb3JyX3RhYmxlW2ksXCJ0XCJdXG4gICAgXG4gICAgI0ZpbHRlciB0aGUgYmFpdFxuICAgIGJhaXQgPSBjb3JyX3RhYmxlW2ksXCJiYWl0XCJdXG4gICAgY29ycl9kYXRhX2JhaXQgPSBmaWx0ZXIoZGF0YSwgdCA9PSB0aW1lX3BvaW50KSAlPiUgZmlsdGVyKGdlbmVfbmFtZSA9PSBiYWl0KVxuICAgIFxuICAgICNGaWx0ZXIgdGhlIHByZXlcbiAgICBwcmV5ID0gY29ycl90YWJsZVtpLFwicHJleVwiXVxuICAgIGNvcnJfZGF0YV9wcmV5ID0gZmlsdGVyKGRhdGEsIHQgPT0gdGltZV9wb2ludCkgJT4lIGZpbHRlcihnZW5lX25hbWUgPT0gcHJleSlcbiAgICBcbiAgICAjRmluZCB0aGUgY29ycmVsYXRpb25cbiAgICBcbiAgICBjb3JyID0gcmNvcnIoYXMubnVtZXJpYyhjb3JyX2RhdGFfYmFpdCRtZWRpYW5fZngpLCBhcy5udW1lcmljKGNvcnJfZGF0YV9wcmV5JG1lZGlhbl9meCkpXG4gICAgI3ByaW50KClcbiAgXG4gICAgI0FkZCBjb3JyZWxhdGlvbiBpbnRvIGNvcnJyZWxhdGlvbiB0YWJsZVxuICAgIGNvcnJfdGFibGVbaSwgXCJjb3JyXCJdID0gY29yciRyW1wieFwiLFwieVwiXVxuICB9XG4gIFxuICByZXR1cm4oY29ycl90YWJsZSlcbn1cblxuY29ycl90YWJsZSA9IEFwcGVuZF9Db3IoY29ycl9kZiwgc2FtcGxlX2RhdGEpXG5cbmBgYCJ9 -->
+<pre class="r"><code>corr_table = corr_df
+
+Append_Cor = function(corr_table, data) {
+  
+  for (i in 1:nrow(corr_table)) { #
+    
+    #check progress
+    if (i %% 100 == 0) {
+      print(paste0(i,&quot;/&quot;,nrow(corr_table)))
+    }
+    
+    #first filter by stage
+    time_point = corr_table[i,&quot;t&quot;]
+    
+    #Filter the bait
+    bait = corr_table[i,&quot;bait&quot;]
+    corr_data_bait = filter(data, t == time_point) %&gt;% filter(gene_name == bait)
+    
+    #Filter the prey
+    prey = corr_table[i,&quot;prey&quot;]
+    corr_data_prey = filter(data, t == time_point) %&gt;% filter(gene_name == prey)
+    
+    #Find the correlation
+    
+    corr = rcorr(as.numeric(corr_data_bait$median_fx), as.numeric(corr_data_prey$median_fx))
+    #print()
+  
+    #Add correlation into corrrelation table
+    corr_table[i, &quot;corr&quot;] = corr$r[&quot;x&quot;,&quot;y&quot;]
+  }
+  
+  return(corr_table)
+}
+
+corr_table = Append_Cor(corr_df, sample_data)
+</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>#Run all functions</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZmlsdGVyX2NyaXRlcmlhID0gYyhjb3JlX3Byb3RlYXNvbWUsIHJlZ3VsYXRvcnlfcHJvdGVhc29tZSlcblxudGFyZ2V0X3Byb3RlaW5zID0gZmlsdGVyX2RhdGEoc2FtcGxlX2RhdGEsIGZpbHRlcl9jcml0ZXJpYSwgY29udGFpbiA9IFRSVUUpXG50YXJnZXRfcHJvdGVpbnNcblxuY29ycl9kZiA9IEluaXRpYWxpemVfQ29yREYodGFyZ2V0X3Byb3RlaW5zLCBzYW1wbGVfZGF0YSlcbmNvcnJfZGZcblxuY29ycl90YWJsZSA9IEFwcGVuZF9Db3IoY29ycl9kZiwgc2FtcGxlX2RhdGEpXG5jb3JyX3RhYmxlXG5gYGAifQ== -->
+<pre class="r"><code>filter_criteria = c(core_proteasome, regulatory_proteasome)
+
+target_proteins = filter_data(sample_data, filter_criteria, contain = TRUE)
+target_proteins
+
+corr_df = Initialize_CorDF(target_proteins, sample_data)
+corr_df
+
+corr_table = Append_Cor(corr_df, sample_data)
+corr_table</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>#Save dataframe</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxud3JpdGUuY3N2KGNvcnJfdGFibGUsIGZpbGUgPSBcImRhdGEvVFBQX2V4b3NvbWVfY29ycmVsYXRpb25zLmNzdlwiLCBxdW90ZSA9IEZBTFNFLCByb3cubmFtZXMgPSBGQUxTRSwgY29sLm5hbWVzID0gVFJVRSlcbmBgYCJ9 -->
+<pre class="r"><code>write.csv(corr_table, file = &quot;data/TPP_exosome_correlations.csv&quot;, quote = FALSE, row.names = FALSE, col.names = TRUE)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+
+<div id="rmd-source-code">LS0tDQp0aXRsZTogIkRhdGFfUHJlcHJvY2Vzc2luZyINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCioqTG9hZGluZyBJbnB1dHMqKg0KDQojTGlicmFyeSBpbXBvcnQNCmBgYHtyfQ0KbGlicmFyeShyZWFkeGwpDQpsaWJyYXJ5KGRhdGEudGFibGUpDQpsaWJyYXJ5KGRwbHlyKQ0KbGlicmFyeShIbWlzYykNCmBgYA0KDQojSW1wb3J0IGFuZCBzaGFwZSBzYW1wbGUgZGF0YQ0KYGBge3J9DQpzYW1wbGVfZGF0YSA9IHJlYWRfZXhjZWwoImRhdGEvVFBQX3NhbXBsZURhdGEueGxzeCIsIHNoZWV0ID0gIlRhYmxlUzFfMkQtVFBQIikNCg0Kc2FtcGxlX2RhdGEgPSBhcy5kYXRhLnRhYmxlKHNhbXBsZV9kYXRhWyxjKCJnZW5lX25hbWUiLCAiZGVzY3JpcHRpb24iLCAiVGVtcGVyYXR1cmUiLCAiZWFybHlTLm1lZGlhbiIsICJsYXRlUy5tZWRpYW4iLCAiU19HMi5tZWRpYW4iLCAiTS5tZWRpYW4iLCAiRzEubWVkaWFuIiwgImFzeW5jaC5tZWRpYW4iKV0pDQoNCnNhbXBsZV9kYXRhID0gbWVsdChzYW1wbGVfZGF0YSwgaWQudmFycyA9IGMoImdlbmVfbmFtZSIsICJkZXNjcmlwdGlvbiIsICJUZW1wZXJhdHVyZSIpLCB2YXJpYWJsZS5uYW1lID0gInQiLCB2YWx1ZS5uYW1lID0gIm1lZGlhbl9meCIpDQpgYGANCg0KDQojU2VhcmNoIEFubm90YXRpb24NCkNyaXRlcmlhIGZvdCBsaW1pdGluZyB0aGUgZ2VuZXMgdGhhdCB3aWxsIGJlIHVzZWQgdG8gZmluZCBpbnRlcmFjdGlvbnMNCmBgYHtyfQ0KI1JpYm9zb21lDQpsYXJnZV9yaWJvc29tYWwgPSAiUlBMIg0Kc21hbGxfcmlib3NvbWFsID0gIlJQUyINCg0KDQojUHJvdGVhc29tZQ0KY29yZV9wcm90ZWFzb21lID0gYygiUFNNQSIsICJQU01CIikNCnJlZ3VsYXRvcnlfcHJvdGVhc29tZSA9IGMoIlBTTUMiLCAiUFNNRCIpDQphbHRfcmVndWxhdG9yeV9wcm90ZWFzb21lID0gIlBTTUUiDQpwcm90ZWFzb21lX2Fzc2VtYmx5X2NoYXBlcm9uZSA9ICJQU01HIg0KDQoNCiNFeG9zb21lDQpjb3JlX2V4b3NvbWUgPSBjKCJFWE9TQzEiLCAiRVhPU0M0IiwgIkVYT1NDNSIsICJFWE9TQzYiLCAiRVhPU0M4IiwgIkVYT1NDOSIsICJFWE9TQzIiLCAiRVhPU0M3IikNCnJlZ19leG9zb21lID0gYygiRElTMyIsICJFWE9TQzEwIikNCg0KYGBgDQoNCg0KKipBbmFseXNpcyBGdW5jdGlvbnMqKg0KDQojRmlsdGVyIHNhbXBsZSBkYXRhDQpGaWx0ZXJzIHRoZSBzYW1wbGUgZGF0YSBiYXNlZCBvbiB0aGUgcHJldmlvdXNseSBkZXRlcm1pbmVkIGZpbHRlciBjcml0ZXJpYQ0KYGBge3J9DQpmaWx0ZXJfZGF0YSA9IGZ1bmN0aW9uKGRhdGEsIGZpbHRlciwgY29udGFpbiA9IFRSVUUpIHsNCiAgDQogIHRhcmdldF9uYW1lcyA9IGMoKQ0KICANCiAgaWYgKGNvbnRhaW4gPT0gVFJVRSl7DQogICAgDQogICAgZm9yIChpIGluIGZpbHRlcikgew0KICAgICAgeCA9IGRhdGFbZ3JlcChpLCBkYXRhJGdlbmVfbmFtZSksXQ0KICAgICAgdGFyZ2V0X25hbWVzID0gYyh0YXJnZXRfbmFtZXMsIHVuaXF1ZSh4JGdlbmVfbmFtZSkpDQogICAgfQ0KICAgIA0KICB9IGVsc2Ugew0KICAgIHRhcmdldF9uYW1lcyA9IGZpbHRlcg0KICB9DQogIHJldHVybih0YXJnZXRfbmFtZXMpDQp9DQoNCmZpbHRlcl9jcml0ZXJpYSA9IGMoY29yZV9leG9zb21lLCByZWdfZXhvc29tZSkNCg0KdGFyZ2V0X3Byb3RlaW5zID0gZmlsdGVyX2RhdGEoc2FtcGxlX2RhdGEsIGZpbHRlcl9jcml0ZXJpYSwgY29udGFpbiA9IFRSVUUpDQp0YXJnZXRfcHJvdGVpbnMNCmBgYA0KDQoNCiNJbml0aWFsaXplIERGDQpUaGUgZm9sbG93aW5nIGZ1bmN0aW9uIGluaXRpYWxpemVzIGEgY29ycmVsYXRpb24gZGF0YWZyYW1lIGZvciBkb3duc3RyZWFtIGFuYWx5c2lzIGJ5IGNvbnZlcnRpbmcgdGhlIGRhdGEgaW50byBwYWlyd2lzZSBpbnRlcmFjdGlvbnMuDQpgYGB7cn0NCiNpbml0aWFsaXplIGRmDQoNCkluaXRpYWxpemVfQ29yREYgPSBmdW5jdGlvbih0YXJnZXRzLCBkYXRhKSB7DQogIA0KICBmb3IgKGkgaW4gMToobGVuZ3RoKHRhcmdldHMpLTEpKXsgIzE6DQoNCiAgICBpZiAoaSA9PSAxKXsNCiAgICAgIGNvcnJfZGYgPSBkYXRhLmZyYW1lKGJhaXQgPSB0YXJnZXRzW2ldLCBwcmV5ID0gYyh0YXJnZXRzWyhpKzEpOmxlbmd0aCh0YXJnZXRzKV0pKQ0KICAgIH0gZWxzZSB7DQogICAgICBuZXdfcm93ID0gZGF0YS5mcmFtZShiYWl0ID0gdGFyZ2V0c1tpXSwgcHJleSA9IGModGFyZ2V0c1soaSsxKTpsZW5ndGgodGFyZ2V0cyldKSkNCiAgICAgIGNvcnJfZGYgPSBiaW5kX3Jvd3MoY29ycl9kZiwgbmV3X3JvdykNCiAgICB9DQogICAgDQogIH0NCiAgDQogIHRpbWVfcG9pbnRzID0gZGF0YS5mcmFtZSh0ID0gdW5pcXVlKGRhdGEkdCkpDQogIGNvcnJfZGYgPSBtZXJnZShjb3JyX2RmLCB0aW1lX3BvaW50cykNCiAgY29ycl9kZiRjb3JyID0gMA0KICANCiAgcmV0dXJuKGNvcnJfZGYpDQp9DQoNCg0KY29ycl9kZiA9IEluaXRpYWxpemVfQ29yREYodGFyZ2V0X3Byb3RlaW5zLCBzYW1wbGVfZGF0YSkNCmNvcnJfZGYNCg0KYGBgDQoNCg0KI0ZpbmQgYWxsIGNvcnJlbGF0aW9uIHZhbHVlcw0KVGhlIGZvbGxvd2luZyBmdW5jdGlvbiBhZGRzIGEgcGFpcndpc2UgY29ycmVsYXRpb24gYmV0d2VlbiB0aGUgYmFpdCBhbmQgdGhlIHByZXkNCmBgYHtyLCB3YXJuaW5nPUZBTFNFfQ0KY29ycl90YWJsZSA9IGNvcnJfZGYNCg0KQXBwZW5kX0NvciA9IGZ1bmN0aW9uKGNvcnJfdGFibGUsIGRhdGEpIHsNCiAgDQogIGZvciAoaSBpbiAxOm5yb3coY29ycl90YWJsZSkpIHsgIw0KICAgIA0KICAgICNjaGVjayBwcm9ncmVzcw0KICAgIGlmIChpICUlIDEwMCA9PSAwKSB7DQogICAgICBwcmludChwYXN0ZTAoaSwiLyIsbnJvdyhjb3JyX3RhYmxlKSkpDQogICAgfQ0KICAgIA0KICAgICNmaXJzdCBmaWx0ZXIgYnkgc3RhZ2UNCiAgICB0aW1lX3BvaW50ID0gY29ycl90YWJsZVtpLCJ0Il0NCiAgICANCiAgICAjRmlsdGVyIHRoZSBiYWl0DQogICAgYmFpdCA9IGNvcnJfdGFibGVbaSwiYmFpdCJdDQogICAgY29ycl9kYXRhX2JhaXQgPSBmaWx0ZXIoZGF0YSwgdCA9PSB0aW1lX3BvaW50KSAlPiUgZmlsdGVyKGdlbmVfbmFtZSA9PSBiYWl0KQ0KICAgIA0KICAgICNGaWx0ZXIgdGhlIHByZXkNCiAgICBwcmV5ID0gY29ycl90YWJsZVtpLCJwcmV5Il0NCiAgICBjb3JyX2RhdGFfcHJleSA9IGZpbHRlcihkYXRhLCB0ID09IHRpbWVfcG9pbnQpICU+JSBmaWx0ZXIoZ2VuZV9uYW1lID09IHByZXkpDQogICAgDQogICAgI0ZpbmQgdGhlIGNvcnJlbGF0aW9uDQogICAgDQogICAgY29yciA9IHJjb3JyKGFzLm51bWVyaWMoY29ycl9kYXRhX2JhaXQkbWVkaWFuX2Z4KSwgYXMubnVtZXJpYyhjb3JyX2RhdGFfcHJleSRtZWRpYW5fZngpKQ0KICAgICNwcmludCgpDQogIA0KICAgICNBZGQgY29ycmVsYXRpb24gaW50byBjb3JycmVsYXRpb24gdGFibGUNCiAgICBjb3JyX3RhYmxlW2ksICJjb3JyIl0gPSBjb3JyJHJbIngiLCJ5Il0NCiAgfQ0KICANCiAgcmV0dXJuKGNvcnJfdGFibGUpDQp9DQoNCmNvcnJfdGFibGUgPSBBcHBlbmRfQ29yKGNvcnJfZGYsIHNhbXBsZV9kYXRhKQ0KDQpgYGANCg0KDQojUnVuIGFsbCBmdW5jdGlvbnMNCmBgYHtyfQ0KZmlsdGVyX2NyaXRlcmlhID0gYyhjb3JlX3Byb3RlYXNvbWUsIHJlZ3VsYXRvcnlfcHJvdGVhc29tZSkNCg0KdGFyZ2V0X3Byb3RlaW5zID0gZmlsdGVyX2RhdGEoc2FtcGxlX2RhdGEsIGZpbHRlcl9jcml0ZXJpYSwgY29udGFpbiA9IFRSVUUpDQp0YXJnZXRfcHJvdGVpbnMNCg0KY29ycl9kZiA9IEluaXRpYWxpemVfQ29yREYodGFyZ2V0X3Byb3RlaW5zLCBzYW1wbGVfZGF0YSkNCmNvcnJfZGYNCg0KY29ycl90YWJsZSA9IEFwcGVuZF9Db3IoY29ycl9kZiwgc2FtcGxlX2RhdGEpDQpjb3JyX3RhYmxlDQpgYGANCg0KI1NhdmUgZGF0YWZyYW1lDQpgYGB7cn0NCndyaXRlLmNzdihjb3JyX3RhYmxlLCBmaWxlID0gImRhdGEvVFBQX2V4b3NvbWVfY29ycmVsYXRpb25zLmNzdiIsIHF1b3RlID0gRkFMU0UsIHJvdy5uYW1lcyA9IEZBTFNFLCBjb2wubmFtZXMgPSBUUlVFKQ0KYGBg</div>
 
 
 
