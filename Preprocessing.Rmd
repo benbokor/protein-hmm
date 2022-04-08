@@ -1,0 +1,168 @@
+---
+title: "Data_Preprocessing"
+output: html_notebook
+---
+
+**Loading Inputs**
+
+#Library import
+```{r}
+library(readxl)
+library(data.table)
+library(dplyr)
+library(Hmisc)
+```
+
+#Import and shape sample data
+```{r}
+sample_data = read_excel("data/TPP_sampleData.xlsx", sheet = "TableS1_2D-TPP")
+
+sample_data = as.data.table(sample_data[,c("gene_name", "description", "Temperature", "earlyS.median", "lateS.median", "S_G2.median", "M.median", "G1.median", "asynch.median")])
+
+sample_data = melt(sample_data, id.vars = c("gene_name", "description", "Temperature"), variable.name = "t", value.name = "median_fx")
+```
+
+
+#Search Annotation
+Criteria fot limiting the genes that will be used to find interactions
+```{r}
+#Ribosome
+large_ribosomal = "RPL"
+small_ribosomal = "RPS"
+
+
+#Proteasome
+core_proteasome = c("PSMA", "PSMB")
+regulatory_proteasome = c("PSMC", "PSMD")
+alt_regulatory_proteasome = "PSME"
+proteasome_assembly_chaperone = "PSMG"
+
+
+#Exosome
+core_exosome = c("EXOSC1", "EXOSC4", "EXOSC5", "EXOSC6", "EXOSC8", "EXOSC9", "EXOSC2", "EXOSC7")
+reg_exosome = c("DIS3", "EXOSC10")
+
+```
+
+
+**Analysis Functions**
+
+#Filter sample data
+Filters the sample data based on the previously determined filter criteria
+```{r}
+filter_data = function(data, filter, contain = TRUE) {
+  
+  target_names = c()
+  
+  if (contain == TRUE){
+    
+    for (i in filter) {
+      x = data[grep(i, data$gene_name),]
+      target_names = c(target_names, unique(x$gene_name))
+    }
+    
+  } else {
+    target_names = filter
+  }
+  return(target_names)
+}
+
+filter_criteria = c(core_exosome, reg_exosome)
+
+target_proteins = filter_data(sample_data, filter_criteria, contain = TRUE)
+target_proteins
+```
+
+
+#Initialize DF
+The following function initializes a correlation dataframe for downstream analysis by converting the data into pairwise interactions.
+```{r}
+#initialize df
+
+Initialize_CorDF = function(targets, data) {
+  
+  for (i in 1:(length(targets)-1)){ #1:
+
+    if (i == 1){
+      corr_df = data.frame(bait = targets[i], prey = c(targets[(i+1):length(targets)]))
+    } else {
+      new_row = data.frame(bait = targets[i], prey = c(targets[(i+1):length(targets)]))
+      corr_df = bind_rows(corr_df, new_row)
+    }
+    
+  }
+  
+  time_points = data.frame(t = unique(data$t))
+  corr_df = merge(corr_df, time_points)
+  corr_df$corr = 0
+  
+  return(corr_df)
+}
+
+
+corr_df = Initialize_CorDF(target_proteins, sample_data)
+corr_df
+
+```
+
+
+#Find all correlation values
+The following function adds a pairwise correlation between the bait and the prey
+```{r, warning=FALSE}
+corr_table = corr_df
+
+Append_Cor = function(corr_table, data) {
+  
+  for (i in 1:nrow(corr_table)) { #
+    
+    #check progress
+    if (i %% 100 == 0) {
+      print(paste0(i,"/",nrow(corr_table)))
+    }
+    
+    #first filter by stage
+    time_point = corr_table[i,"t"]
+    
+    #Filter the bait
+    bait = corr_table[i,"bait"]
+    corr_data_bait = filter(data, t == time_point) %>% filter(gene_name == bait)
+    
+    #Filter the prey
+    prey = corr_table[i,"prey"]
+    corr_data_prey = filter(data, t == time_point) %>% filter(gene_name == prey)
+    
+    #Find the correlation
+    
+    corr = rcorr(as.numeric(corr_data_bait$median_fx), as.numeric(corr_data_prey$median_fx))
+    #print()
+  
+    #Add correlation into corrrelation table
+    corr_table[i, "corr"] = corr$r["x","y"]
+  }
+  
+  return(corr_table)
+}
+
+corr_table = Append_Cor(corr_df, sample_data)
+
+```
+
+
+#Run all functions
+```{r}
+filter_criteria = c(core_proteasome, regulatory_proteasome)
+
+target_proteins = filter_data(sample_data, filter_criteria, contain = TRUE)
+target_proteins
+
+corr_df = Initialize_CorDF(target_proteins, sample_data)
+corr_df
+
+corr_table = Append_Cor(corr_df, sample_data)
+corr_table
+```
+
+#Save dataframe
+```{r}
+write.csv(corr_table, file = "data/TPP_exosome_correlations.csv", quote = FALSE, row.names = FALSE, col.names = TRUE)
+```
