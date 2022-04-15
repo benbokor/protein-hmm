@@ -22,15 +22,13 @@ summary(data)
 
 ## Extract Data 
 ```{r}
-complex1_df <- data %>% filter(bait == 'PSMA1', prey == 'PSMA2')
-complex2_df <- data %>% filter(bait == 'PSMB2', prey == 'PSMC5') 
-complex3_df <- data %>% filter(bait == 'PSMD13', prey == 'PSMG3') 
-complex4_df <- data %>% filter(bait == 'PSMD7', prey == 'PSMD9') 
-complex5_df <- data %>% filter(bait == 'PSMA5', prey == 'PSMD10') 
+psma1_df <- data %>% filter(bait == 'PSMA1', t!= 'asynch.median')
+psma1_df <- psma1_df[order(psma1_df$prey),] ## each 5 entries is a new prey when ordered
 
-multi_obs <- paste(as.character(unlist(round(complex1_df$corr, 1))), as.character(unlist(round(complex2_df$corr, 1))), as.character(unlist(round(complex3_df$corr, 1))), as.character(unlist(round(complex4_df$corr, 1))), as.character(unlist(round(complex5_df$corr, 1))))
+psma2_df <- data %>% filter(bait == 'PSMA2', t!= 'asynch.median')
+psma2_df <- psma2_df[order(psma2_df$prey),] ## each 5 entries is a new prey when ordered
 
-
+# multi_obs <- paste(as.character(unlist(round(complex1_df$corr, 1))), as.character(unlist(round(complex2_df$corr, 1))), as.character(unlist(round(complex3_df$corr, 1))), as.character(unlist(round(complex4_df$corr, 1))), as.character(unlist(round(complex5_df$corr, 1))))
 
 ```
 
@@ -85,6 +83,10 @@ learned_hmm2 <- baumWelch(hmm2, observed_data)
 print(learned_hmm2$hmm)
 ```
 
+
+
+
+
 ## Try aphid Package
 ```{r}
 library(aphid)
@@ -95,12 +97,23 @@ library(aphid)
 states <- c("begin", "interaction", "no_interaction")
 
 ### Define the transition probability matrix
-T_ <- matrix(c(0, 0, 0, .5, .5, 0.75, 0.25, 0.25, 0.75), nrow = 3)
+T_ <- matrix(c(0, 0, 0, 0.5, 0.75, 0.75, 0.5, 0.25, 0.25), nrow = 3)
 dimnames(T_) <- list(from = states, to = states) #names columns and rows for matrix
 
 ### Define the emission probability matrix
-E_ <- matrix(c(rep(1/21, 21), rep(1/21, 21)), nrow = 2, byrow = TRUE)
-dimnames(E_) <- list(states = states[-1], residues = symbols) #names columns and rows for matrix
+#Get the emission matrix for -1 to 1:
+##Observations from -1 to 1
+symbols = seq(from = -1.0, to = 1.0, by = 0.1)
+##set an increasing probability from  0 to 1 spread out across the 20 observations
+probs = seq(from = 0.0, to = 1.0, by = 0.05)
+#Normalize so the rows will sum to 1 for each state
+probs_increase_adjusted = probs * (1/sum(probs))
+##et the reverse for the "no interaction" state
+probs_decrease_adjusted = rev(probs_increase_adjusted)
+##Set emission matrix
+E_ <- matrix(c(probs_increase_adjusted, probs_decrease_adjusted), 2, byrow=TRUE)
+#E_ <- matrix(c(rep(1/21, 21), rep(1/21, 21)), nrow = 2, byrow = TRUE)
+dimnames(E_) <- list(states = states[-1], residues = symbols) #names columns and rows for matrix 
 
 #creates hmm structure
 x2 <- structure(list(A = T_, E = E_), class = "HMM")
@@ -108,18 +121,132 @@ x2 <- structure(list(A = T_, E = E_), class = "HMM")
 #plots image of HMM
 plot.HMM(x2, main ="Starting HMM Model for Protein Interactions")
 
+observed_data <- c(as.character(round(psma1_df$corr, 1)))
 
-observed_data <- c(as.character(round(complex1_df$corr, 1)))
+#write function to loop through data and retrain model
+
+#observed_data <- c(as.character(round(complex1_df$corr, 1)))
 #dimnames(observed_data) <- list(states[1], states[1], states[1], states[0], states[0], states[1])
 
 #trains hmm -- use 1 set of observations not multiple observations
-hmm_aphid <- train(x2, observed_data, method="BaumWelch", maxiter=50, pseudocounts="Laplace")
+hmm_aphid <- train(x2, observed_data, method="BaumWelch", maxiter=500, pseudocounts="Laplace")
+hmm_aphid
 hmm_aphid$A
 hmm_aphid$E
 
+
+plot.HMM(hmm_aphid, main="HMM Model After Training")
 ```
 
+
+```{r}
+hmm_dfT <- data.frame(hmm_aphid$A) 
+hmm_dfE <- data.frame(t(hmm_aphid$E))
+
+ggplot(data=hmm_dfE) + 
+  geom_col(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4', alpha = 0.3) +
+  geom_col(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue', alpha = 0.2) +
+  ggtitle("Learned Emissions Matrix") + 
+  xlab("Correlation Values") +
+  ylab("Probabilities") + 
+  theme(legend.position="top") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+ggplot(data=data.frame(t(E_))) +
+  geom_col(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4', alpha = 0.3) +
+  geom_col(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue', alpha = 0.2) +
+  ggtitle("Initialized Emissions Matrix") + 
+  xlab("Correlation Values") +
+  ylab("Probabilities") + 
+  theme(legend.position="top") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+ggplot(data=hmm_dfE) + 
+  geom_point(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4') + 
+  geom_line(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=interaction), color='coral') +
+  geom_point(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue') + 
+  geom_line(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=no_interaction), color='blue') +
+  ggtitle("Learned Emissions Matrix") + 
+  xlab("Correlation Values") +
+  ylab("Probabilities") + 
+  theme(legend.position="top") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(data=data.frame(t(E_))) + 
+  geom_point(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4') + 
+  geom_line(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=interaction), color='coral') +
+  geom_point(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue') + 
+  geom_line(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=no_interaction), color='blue') +
+  ggtitle("Initialized Emissions Matrix") + 
+  xlab("Correlation Values") +
+  ylab("Probabilities") + 
+  theme(legend.position="top") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+# Viterbi to determine protein states
+```{r}
+
+test_viterbi <- c(as.character(round(psma2_df$corr, 1)))
+
+vit1 <- Viterbi(hmm_aphid, test_viterbi)
+predicted <- c("interaction", "no_interaction")[vit1$path +1]
+predicted
+
+# protein.post <- posterior(hmm_aphid, observed_data)
+# plot(1:300, seq(0, 1, length.out = 300), type = "n", xlab = "Protein's",
+#      ylab = "Posterior probability of Interaction or No Interaction")
+# starts <- which(c("L", actual) == "F" & c(actual, "F") == "L")
+# ends <- which(c("F", actual) == "L" & c(actual, "L") == "F") - 1
+# for(i in 1:6) rect(starts[i], 0, ends[i], 1, col = "grey", border = NA)
+# lines(1:300, casino.post[1, ])
+```
+
+## train on psma2 to see if different parameters found
+```{r}
+
+x_base <- structure(list(A = T_, E = E_), class = "HMM")
+
+hmm_aphid2 <- train(x_base, test_viterbi, method="BaumWelch", maxiter=500, pseudocounts="Laplace")
+hmm_aphid2
+hmm_aphid2$A
+hmm_aphid2$E
+
+vit2 <- Viterbi(hmm_aphid2, test_viterbi)
+predicted2 <- c("interaction", "no_interaction")[vit2$path +1]
+predicted2
+```
+
+## loop through different protein interactions - psma1
+```{r}
+observed_data <- c(as.character(round(psma1_df$corr, 1)))
+
+#write function to loop through data and retrain model
+hmm_looped <- structure(list(A = T_, E = E_), class = "HMM") #base model
+index1 <- 1
+for (pairing in range((length(observed_data)/5) + 1)) {
+  pair_train <- c(as.character(round(psma1_df$corr, 1)[index1:(index1+5)]))
+  hmm_looped <- train(hmm_looped, observed_data, method="BaumWelch", maxiter=500, pseudocounts="Laplace")
+  index1 <- index1 + 5
+}
+hmm_looped$A
+hmm_looped$E
+plot.HMM(hmm_looped, main="HMM Model After Training")
+```
+
+
+
 ## Playing around with aphid example data/code -- casino 
+
 ```{r}
 data(casino) ##data used in examples
 
@@ -160,4 +287,56 @@ x <- train(x, list(casino), method = "BaumWelch", deltaLL = 0.001)
 plot(x, main = "Dishonest casino HMM after training")
 par(op)
 ```
+
+
+## By Hand - try? 
+```{r}
+# #update H,L,M to 1,2,3 for function. 
+# spring$park_obs <- ifelse(spring$parks < -10, 1,
+#                           ifelse(spring$parks >= -10 & spring$parks < 40, 2, 3))
+# 
+# #BaumWelch
+# BaumWelch = function(v, a, b, initial_distribution, n.iter = 100){
+#   
+#   for(i in 1:n.iter){
+#     T = length(v)
+#     M = nrow(a)
+#     K=ncol(b)
+#     alpha = forward(v, a, b, initial_distribution)
+#     beta = backward(v, a, b)
+#     xi = array(0, dim=c(M, M, T-1))
+#     
+#     for(t in 1:T-1){
+#       denominator = ((alpha[t,] %*% a) * b[,v[t+1]]) %*% matrix(beta[t+1,]) 
+#       for(s in 1:M){
+#         numerator = alpha[t,s] * a[s,] * b[,v[t+1]] * beta[t+1,]
+#         xi[s,,t]=numerator/as.vector(denominator)
+#       }
+#     }
+#     
+#     
+#     xi.all.t = rowSums(xi, dims = 2)
+#     a = xi.all.t/rowSums(xi.all.t)
+#     
+#     gamma = apply(xi, c(1, 3), sum)  
+#     gamma = cbind(gamma, colSums(xi[, , T-1]))
+#     for(l in 1:K){
+#       b[, l] = rowSums(gamma[, which(v==l)])
+#     }
+#     b = b/rowSums(b)
+#     
+#   }
+#   return(list(a = a, b = b, initial_distribution = initial_distribution))
+# }
+# 
+# M=3; K=3
+# A = matrix(1, M, M)
+# A = A/rowSums(A)
+# B = matrix(1:6, M, K)
+# B = B/rowSums(B)
+# initial_distribution = c(1/3,1/3, 1/3)
+# 
+# (myout = BaumWelch(spring$park_obs, A, B, initial_distribution, n.iter = 100))
+```
+
 
