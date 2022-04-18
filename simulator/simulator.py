@@ -1,4 +1,5 @@
 from time import time
+from tokenize import single_quoted
 import numpy as np
 import matplotlib.pyplot as plt
 # import numpy.typings as npt
@@ -25,15 +26,14 @@ class Simulator():
         self.noise_func_type = noise_func_type
 
         self.signal_inflection_point = 45
-        self.signal_upper_bound = 70
-        self.signal_lower_bound = 30
+        self.noise_inflection_point = 55
+        self.x_upper_bound = 70
+        self.x_lower_bound = 30
         self.max_val = 1
-        self.signal_xrange = None
+        self.x_range = None
 
-        self.noise_inflection_point = 45
-        self.noise_upper_bound = 70
-        self.noise_lower_bound = 30
-        self.noise_xrange = None
+        self.noise_upper_bound = 0.1
+        self.noise_lower_bound = 0.01
 
         self.correlation_type = correlation_type
         self.data = None
@@ -58,26 +58,51 @@ class Simulator():
             print("Inflection point will be ignored")
 
         self.data = []
-        for pt in range(self.num_timepoints):
-            self.signal_xrange = np.random.uniform(
-                    self.signal_lower_bound, 
-                    self.signal_upper_bound, 
+        self.x_range = np.random.uniform(
+                    self.x_lower_bound, 
+                    self.x_upper_bound, 
                     self.vals_per_timepoint
-            )
+        )
+        self.x_range = sorted(self.x_range)
 
-            self.noise_xrange = np.random.uniform(
-                    self.noise_lower_bound, 
-                    self.noise_upper_bound, 
-                    self.vals_per_timepoint
-            )
-            
-            if self.timepoints[pt] == 0:
+        for pt in range(self.num_timepoints):    
+            if self.timepoints[pt] == 1:
                 if self.signal_func_type == "sigmoid":
-                    noise = self.sigmoid(self.noise_xrange, self.signal_inflection_point, self.max_val)
+                    noise = self.sigmoid(self.x_range, self.noise_inflection_point, self.max_val)
+
+                    for i in range(len(noise)):
+                        choice = np.random.choice([True,False])
+
+                        if choice:
+                            noise[i] += np.random.uniform(
+                                self.noise_lower_bound, 
+                                self.noise_upper_bound
+                            )
+                        else:
+                            noise[i] -= np.random.uniform(
+                                self.noise_lower_bound, 
+                                self.noise_upper_bound
+                            )
+
                     self.data.append(noise)
-            elif self.timepoints[pt] == 1:
+            elif self.timepoints[pt] == 0:
                 if self.noise_func_type == "sigmoid":
-                    signal = self.sigmoid(self.signal_xrange, self.noise_inflection_point, self.max_val)
+                    signal = self.sigmoid(self.x_range, self.signal_inflection_point, self.max_val)
+                    
+                    for i in range(len(signal)):
+                        choice = np.random.choice([True,False])
+
+                        if choice:
+                            signal[i] += np.random.uniform(
+                                self.noise_lower_bound, 
+                                self.noise_upper_bound
+                            )
+                        else:
+                            signal[i] -= np.random.uniform(
+                                self.noise_lower_bound, 
+                                self.noise_upper_bound
+                            )
+                    
                     self.data.append(signal)
 
         return self.data
@@ -91,11 +116,11 @@ class Simulator():
         if self.correlation_type == "pearson":
             for idx, val in enumerate(self.data):
                 if self.timepoints[idx] == 0:
-                    x = self.noise_xrange
-                    y = self.sigmoid(self.signal_xrange, self.noise_inflection_point, self.max_val)
+                    x = self.x_range
+                    y = self.sigmoid(self.x_range, self.noise_inflection_point, self.max_val)
                 elif self.timepoints[idx] == 1:
-                    x = self.noise_xrange
-                    y = self.sigmoid(self.signal_xrange, self.noise_inflection_point, self.max_val)
+                    x = self.x_range
+                    y = self.sigmoid(self.x_range, self.noise_inflection_point, self.max_val)
 
                 corr = np.corrcoef(x, y)
                 
