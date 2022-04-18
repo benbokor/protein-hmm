@@ -1,3 +1,4 @@
+from matplotlib import legend
 import simulator
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,22 +11,24 @@ kwargs = {
     "correlation_type": "pearson"
 }
 
-sim = simulator.Simulator(**kwargs)
-timepoints = sim.set_timepoints([0,1,1,0,0,0])
-data = sim.generate_data()
+for i in range(1,10):
+    sim = simulator.Simulator(**kwargs)
+    timepoints = sim.set_timepoints([0,1,1,0,0,0])
+    data = sim.generate_data()
+    corr = sim.calculate_correlations()
+    plt.scatter(np.linspace(0,5,6), corr)
 
-# corr = sim.calculate_correlations()
-# print(corr)
+# x_generated = sim.x_range
+# for i in range(len(data)):
+#     tpts = sim.timepoints
 
-x_noise = sim.noise_xrange
-x_signal = sim.signal_xrange
+#     if tpts[i] == 0:
+#         plt.scatter(x_generated, data[i])
+#     else:
+#         plt.scatter(x_generated, data[i])
 
-for i in range(len(data)):
-    tpts = sim.timepoints
+# actual_x = np.linspace(30, 70, 40)
+# actual_y = sim.sigmoid(actual_x, 45, 1)
+# plt.plot(actual_x, actual_y)
 
-    if tpts[i] == 0:
-        plt.scatter(x_noise, data[i])
-    else:
-        plt.scatter(x_signal, data[i])
-
-plt.savefig("tmp.png")
+plt.show()
