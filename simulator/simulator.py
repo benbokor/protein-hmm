@@ -39,14 +39,6 @@ class Simulator():
         self.data = None
         self.correlation_values = None
 
-
-    # Internal Function Definitions
-    def affine(self, intercept, slope, ub, lb):
-        return slope * np.arange(lb, ub) + intercept
-
-    def linear(self, slope, ub, lb):
-        return self.affine(self, 0, slope, ub, lb)
-
     def sigmoid(self, x, inflection_point, max_val):
         # Make this a proper numpy operation later
         a = []
@@ -91,13 +83,13 @@ class Simulator():
         return self.data
 
     def calculate_correlations(self):
-        if data is None:
+        if self.data is None:
             return "Error: No data generated, please run generate_data() first"
 
         self.correlation_values = []
 
         if self.correlation_type == "pearson":
-            for idx, val in enumerate(data):
+            for idx, val in enumerate(self.data):
                 if self.timepoints[idx] == 0:
                     x = self.noise_xrange
                     y = self.sigmoid(self.signal_xrange, self.noise_inflection_point, self.max_val)
@@ -116,23 +108,3 @@ class Simulator():
             print("pearson")
 
         return self.correlation_values
-
-    def plot_correlation_barchart(self):
-        plt.bar(self.correlation_values)
-        
-        
-
-kwargs = {
-    "shape":(6,6),                      # (6 time points, 6 values per timepoint)
-    "sample_noise_dist": "uniform",     # ~ U[lower bound, upper bound]
-    "signal_func_type": "sigmoid",      
-    "noise_func_type": "sigmoid",
-    "correlation_type": "pearson"
-}
-
-sim = Simulator(**kwargs)
-timepoints = sim.set_timepoints([0,1,1,0,0,0])
-data = sim.generate_data()
-corr = sim.calculate_correlations()
-
-print(corr)
