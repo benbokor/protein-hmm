@@ -50,9 +50,6 @@ class Simulator():
         self.timepoints = pts
         return self.timepoints
 
-    def print_vars(self):
-        print(vars(self))
-
     def generate_data(self):
         if self.signal_func_type == "affine_zero_slope":
             print("Inflection point will be ignored")
