@@ -93,8 +93,6 @@ print(learned_hmm2$hmm)
 
 
 
-
-
 ## Try aphid Package
 ```{r}
 library(aphid)
@@ -233,7 +231,36 @@ ggplot(data=data.frame(t(E_2))) +
 
 ```
 
+```{r}
+#try deriveHMM
+#add interaction labels
+psma1_df_tpca$pro_interaction <- ifelse(psma1_df_tpca$distance > 0.3, 'interaction', 'no_interaction') 
+psma1_df_tpca$distance <- ifelse(psma1_df_tpca$distance >1.0, 1.0, psma1_df_tpca$distance)
 
+named_vector1 <- c(as.character(round(psma1_df_tpca$distance, 1)))
+names(named_vector1) <- c(as.character(psma1_df_tpca$pro_interaction))
+
+derive_tpca <- deriveHMM(list(named_vector1), logspace = FALSE)
+
+derive_tpca$A
+derive_tpca$E
+plot.HMM(derive_tpca)
+
+derive_E <- data.frame(t(derive_tpca$E))
+
+ggplot(data=derive_E) + 
+  geom_point(aes(x = seq(from = 0.1, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4') + 
+  geom_line(aes(x = seq(from = 0.1, to = 1.0, by = 0.1), y=interaction), color='coral') +
+  geom_point(aes(x = seq(from = 0.1, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue') + 
+  geom_line(aes(x = seq(from = 0.1, to = 1.0, by = 0.1), y=no_interaction), color='blue') +
+  ggtitle("Learned Emissions Matrix") + 
+  xlab("Correlation Values") +
+  ylab("Probabilities") + 
+  theme(legend.position="top") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
 
 
 ```{r}
@@ -244,7 +271,7 @@ psma1_df$pro_interaction <- ifelse(psma1_df$corr > 0.5, 'interaction', 'no_inter
 named_vector <- c(as.character(round(psma1_df$corr, 1)))
 names(named_vector) <- c(as.character(psma1_df$pro_interaction))
 
-deriveh <- deriveHMM(list(named_vector))
+deriveh <- deriveHMM(list(named_vector), logspace = FALSE)
 
 deriveh$A
 deriveh$E
