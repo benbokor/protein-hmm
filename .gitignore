@@ -3,3 +3,4 @@
 .Rhistory
 .RData
 .Ruserdata
+simulator/__pycache__/*
