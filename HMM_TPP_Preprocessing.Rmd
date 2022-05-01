@@ -14,7 +14,7 @@ library(Hmisc)
 library(ggplot2)
 
 #Rtpca specific
-library(Rtpca) 
+library(Rtpca)
 library(eulerr)
 ```
 
@@ -154,6 +154,9 @@ Append_Cor = function(corr_table, data) {
 corr_table = Append_Cor(corr_df, sample_data)
 
 ```
+```{r}
+View(corr_table)
+```
 
 
 #Run all functions
@@ -263,15 +266,10 @@ Find_Distances = function(cell_cycle, preprocessed_data, complex_data, filter, m
   #Add pvalue
   ##Select only null interactions and convert to table
   null_distance_matrix = select(data.frame(t(target_distance_matrix_all)), !contains(filter_criteria)) %>% as.matrix()
-  null_table = melt(null_distance_matrix) %>% filter(value != 0)
+  null_table = reshape2::melt(null_distance_matrix) %>% filter(value != 0)
   ##Derive the pvalues and add to interactions table
   pvalues <- empPvals(stat = interaction_table$distance, stat0 = null_table$value)
   interaction_table$pvalue = (1 - pvalues)
-  
-  
-  
-  
-  
   
   return(interaction_table)
 }
