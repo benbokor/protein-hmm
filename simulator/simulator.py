@@ -131,26 +131,25 @@ class Simulator():
 
     def sample_correlations(self, learning_data=None):
         """
-        Samples in-complex data points from normal distribution 
-        and out-of-complex data from beta distribution. Optionally users can pass in 
-        learning_data to empirically estimate distribution parameters.
-        learning_data should be n x 2 dataframe with boolean in first column 
-        and correlation value in second column. Boolean is True for in complex false
-        for out of complex. Correlations should be in [0,1].
+        Samples in-complex and out-of-complex data from beta and normal distributions respectively
+        Optionally users can pass in learning_data to estimate distribution parameters.
+        
+        self: Simulator
+        learning_data: pandas.DataFrame
         """
 
         # Estimating parameters for in-complex and out-of-complex timepoints
         if learning_data is not None:
             print("Estimating beta and normal distribution paramaters")
             assert learning_data.shape[1] == 2
-            # Estimate beta params 
+            # Estimate beta parameters
             # https://stats.stackexchange.com/questions/12232/calculating-the-parameters-of-a-beta-distribution-using-the-mean-and-variance)
             beta_mean = learning_data[learning_data["in_complex"] == True].mean()
             beta_variance = learning_data[learning_data["in_complex"] == True].var()
             beta_a = ((1-beta_mean)/(beta_variance ** 2) - 1/beta_mean) * (beta_mean ** 2)
             beta_b = beta_a * ((1/beta_mean) - 1)
 
-            # Estimate normal params
+            # Estimate normal parameters
             normal_mean = learning_data[learning_data["in_complex"] == False].mean()
             normal_variance = learning_data[learning_data["in_complex"] == False].var()
         else:
@@ -177,17 +176,3 @@ class Simulator():
                 )
 
         return self.correlation_values
-
-
-kwargs = {
-            "shape":(6,6),                      # (6 time points, 6 values per timepoint)
-            "sample_noise_dist": "uniform",     # ~ U[lower bound, upper bound]
-            "signal_func_type": "sigmoid",      
-            "noise_func_type": "sigmoid",
-            "correlation_type": "pearson"
-        }
-sim = Simulator(**kwargs)
-sim.set_timepoints([0,1,1,0,0,0])
-
-values = sim.sample_correlations()
-print(values)

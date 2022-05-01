@@ -5,19 +5,38 @@ date: "4/30/2022"
 output: html_document
 ---
 
-# Test
+## Load Data & Packages
 ```{r}
+library(tidyverse)
+library(HMM)
 library(reticulate)
-use_python("/usr/local/opt/python@3.9/bin/python3.9")  # Change this to wherever python is installed
-system("ls")
+
+# Python Integration
+# Change this to wherever python is installed
+use_python("/Users/darvesh/Library/r-miniconda/envs/r-reticulate/bin/python")
+py_install("pandas")
+py_install("numpy")
+
+data <- read.table('./data/TPP_proteasome_correlations.csv', sep=',', header = TRUE)
+summary(data)
+
+tpca_data <- read.table('./data/Proteasome_TPCA_Result.csv', sep=',', header =TRUE)
+summary (tpca_data)
 ```
 
+# Generating Data and/or Correlations from Simulator
 ```{python}
+# Add simulator directory to allow python find simulator.py script
 import sys
-import matplotlib
 sys.path.insert(0, "simulator/")
-from simulator import Simulator
 
+import pandas as pd
+import numpy as np
+from simulator import Simulator
+DATA_POINTS = 211
+NUM_TIMEPOINTS = 6
+
+# Arguments, primarily for generating data
 kwargs = {
             "shape":(6,6),                      # (6 time points, 6 values per timepoint)
             "sample_noise_dist": "uniform",     # ~ U[lower bound, upper bound]
@@ -25,8 +44,114 @@ kwargs = {
             "noise_func_type": "sigmoid",
             "correlation_type": "pearson"
         }
+        
+# Instantiate simulator object
 sim = Simulator(**kwargs)
-sim.set_timepoints([0,1,1,0,0,0])
+
+# Same timepoints for all data points
+corr_data_identical = []
+for i in range(DATA_POINTS):
+  sim.set_timepoints([0,1,1,0,0,0])
+  corr = sim.sample_correlations()
+  corr_data_identical.append(corr)
+
+corr_df_identical = pd.DataFrame(corr_data_identical)
+corr_df_identical.to_csv("data/simulated_distances_identical_timepoints.csv")
+
+# Instantiate new simulator and pick randomly selected timepoints
+sim = Simulator(**kwargs)
+corr_data_random = []
+for i in range(DATA_POINTS):
+  timepoints = []
+  
+  for t in range(NUM_TIMEPOINTS):
+    timepoints.append(np.random.choice(2,1).item())
+    
+  sim.set_timepoints(timepoints)
+  corr = sim.sample_correlations()
+  corr_data_random.append(corr)
+  
+corr_df_random = pd.DataFrame(corr_data_random)
+corr_df_random.to_csv("data/simulated_distances_random_timepoints.csv")
 ```
 
+## Extract Data 
+```{r}
+psma1_df <- data %>% dplyr::filter(bait == 'PSMA1', t!= 'asynch.median')
+psma1_df <- psma1_df[order(psma1_df$prey),] ## each 5 entries is a new prey when ordered
+
+psma2_df <- data %>% filter(bait == 'PSMA2', t!= 'asynch.median')
+psma2_df <- psma2_df[order(psma2_df$prey),] ## each 5 entries is a new prey when ordered
+
+
+##tpca data
+psma1_df_tpca <- tpca_data %>% filter(bait == 'PSMA1', stage != 'asynch')
+psma1_df_tpca <- psma1_df_tpca[order(psma1_df_tpca$prey),] 
+```
+
+
+## Initialize HMM Model - Default Values
+```{r}
+#usage/defaults: initHMM(States, Symbols, startProbs=NULL, transProbs=NULL, emissionProbs=NULL)
+states <- c("interaction", "no_interaction") #hidden states
+symbols <- as.character(seq(from = -1.0, to = 1.0, by = 0.1)) #observed states - needs to be character dtype or error is thrown
+pi <- NULL
+T_ <- NULL
+E_ <- NULL
+hmm <- initHMM(states, symbols) #initialized model
+```
+
+
+## Aphid & tpca Data
+```{r}
+library(aphid)
+
+states <- c("begin", "interaction", "no_interaction")
+
+### Define the transition probability matrix
+T_2 <- matrix(c(0, 0, 0, 0.5, 0.75, 0.75, 0.5, 0.25, 0.25), nrow = 3)
+dimnames(T_2) <- list(from = states, to = states) #names columns and rows for matrix
+
+### Define the emission probability matrix
+## Observations from 0 to 1
+symbols = seq(from = 0.0, to = 1.0, by = 0.1)
+
+E_2 <- matrix(c(0, 1.0, 0.1, 0.9, 0.2, 0.8, 0.3, 0.7, 0.4, 0.6, 0.5, 0.5, 0.6, 0.4, 0.7, 0.3, 0.8, 0.2, 0.9, 0.1, 1.0, 0.0), nrow = 2)
+dimnames(E_2) <- list(states = states[2:3], residues = symbols) #names columns and rows for matrix 
+
+#creates hmm structure
+x_tpca <- structure(list(A = T_2, E = E_2), class = "HMM")
+
+#plots image of HMM
+x2 <- structure(list(A = T_, E = E_), class = "HMM")
+plot.HMM(x_tpca, main ="Starting HMM Model for Protein Interactions")
+```
+
+
+```{r simulated_random_timpoints}
+sim_dist_random <- read_csv("data/simulated_distances_random_timepoints.csv")
+sim_dist_random <- sim_dist_random[2:7]
+sim_dist_random$binned <- ifelse(sim_dist_random$"3" > 1, '1.0', sim_dist_random$"3")
+
+tpca1_train_sim_random <- c(as.character(round(as.numeric(sim_dist_random$binned, 1))))
+
+hmm_aphid_sim_random <- train(x_tpca, tpca1_train_sim_random, method="BaumWelch", maxiter=500, pseudocounts="Laplace")
+
+plot.HMM(hmm_aphid_sim_random, main="HMM Model After Training - Simulated Data")
+hmm_tpcaE_sim_random <- data.frame(t(hmm_aphid_sim_random$E))
+hmm_tpcaE_sim_random
+
+
+ggplot(data=hmm_tpcaE_sim_random) + 
+  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4') + 
+  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), color='coral') +
+  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue') + 
+  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), color='blue') +
+  ggtitle("Learned Emissions Matrix - Simulated Data") + 
+  xlab("Correlation Values") +
+  ylab("Probabilities") + 
+  theme(legend.position="top") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
 
