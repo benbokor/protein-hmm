@@ -1,15 +1,7 @@
 from time import time
 from tokenize import single_quoted
 import numpy as np
-import matplotlib.pyplot as plt
-# import numpy.typings as npt
 import math
-# from typing import Final, List, Tuple
-
-# signal_func_types: Final = ["sigmoid", "linear", "affine"] 
-# noise_func_types: Final = ["sigmoid", "linear", "affine"] 
-# sample_noise_distributions: Final = ["normal", "uniform"]
-# correlation_types: Final = ["pearson"]
 
 class Simulator():
     def __init__(self, shape, sample_noise_dist, signal_func_type, noise_func_type, correlation_type="pearson"):

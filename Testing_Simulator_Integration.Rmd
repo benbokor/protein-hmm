@@ -1,0 +1,32 @@
+---
+title: "Testing_Simulator_Integration"
+author: "Darvesh Gorhe"
+date: "4/30/2022"
+output: html_document
+---
+
+# Test
+```{r}
+library(reticulate)
+use_python("/usr/local/opt/python@3.9/bin/python3.9")  # Change this to wherever python is installed
+system("ls")
+```
+
+```{python}
+import sys
+import matplotlib
+sys.path.insert(0, "simulator/")
+from simulator import Simulator
+
+kwargs = {
+            "shape":(6,6),                      # (6 time points, 6 values per timepoint)
+            "sample_noise_dist": "uniform",     # ~ U[lower bound, upper bound]
+            "signal_func_type": "sigmoid",      
+            "noise_func_type": "sigmoid",
+            "correlation_type": "pearson"
+        }
+sim = Simulator(**kwargs)
+sim.set_timepoints([0,1,1,0,0,0])
+```
+
+
