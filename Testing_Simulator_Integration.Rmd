@@ -105,7 +105,6 @@ hmm <- initHMM(states, symbols) #initialized model
 ## Aphid & tpca Data
 ```{r}
 library(aphid)
-
 states <- c("begin", "interaction", "no_interaction")
 
 ### Define the transition probability matrix
@@ -136,10 +135,12 @@ sim_dist_random$binned <- ifelse(sim_dist_random$"3" > 1, '1.0', sim_dist_random
 tpca1_train_sim_random <- c(as.character(round(as.numeric(sim_dist_random$binned, 1))))
 
 hmm_aphid_sim_random <- train(x_tpca, tpca1_train_sim_random, method="BaumWelch", maxiter=500, pseudocounts="Laplace")
+print.HMM(hmm_tpcaE_sim_random)
 
 plot.HMM(hmm_aphid_sim_random, main="HMM Model After Training - Simulated Data")
 hmm_tpcaE_sim_random <- data.frame(t(hmm_aphid_sim_random$E))
-hmm_tpcaE_sim_random
+hmm_tpcaE_sim_random$T_2
+
 
 
 ggplot(data=hmm_tpcaE_sim_random) + 

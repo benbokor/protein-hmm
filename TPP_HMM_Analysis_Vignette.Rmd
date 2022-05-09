@@ -1,0 +1,282 @@
+---
+title: "HMM Analysis Vignette"
+output: html_notebook
+---
+
+**Section 1: Loading Data**
+
+#Loading packages
+For any packages not already installed, install via the 'install.packages()' function. 
+Note: The Rtpca requires specific versioning and other packages, if prompted install and version accordingly. 
+```{r}
+library(tidyr)
+library(dplyr)
+library(aphid)
+library(tidyverse)
+library(HMM)
+library(readxl)
+library(data.table)
+library(Hmisc)
+library(ggplot2)
+library(Rtpca) 
+library(eulerr)
+library(qvalue)
+```
+
+#Loading data
+Data loaded is retrieved from Becher et al. (2018): https://data.mendeley.com/datasets/xrbmvv5srs/2. 
+```{r}
+#Protein TPP data
+becher = read.csv("data/becher_fullCycle_reformat.csv")
+
+#Protein Complex annotation imported with the Rtpca package
+data("ori_et_al_complexes_df")
+
+head(becher, n=6)
+```
+
+
+**Section 2: Preprocessing**
+
+#Prepare data
+Resturctures the primary becher data to fit the RTPCA analysis function for the Residual Sum of Squares funcion.
+```{r}
+RTPCA_Preprocess = function(cell_cycle, becher_data) {
+  
+  #Reformat the dataframe
+  reformat_df <- becher_data %>% 
+    filter(cell.cycle == cell_cycle) %>% 
+    dplyr::select(
+        gene_name,
+        replicates = found.in.reps,
+        max_qupm = max.qupm,
+        min_qupm = min.qupm,
+        matches("mean\\.fc")) %>% 
+    filter(min_qupm > 0, replicates > 1)
+  
+  #Create as matrix, define its row names and supply and attribute vector specifying the temperatures represented by the various TMT channels:
+  
+  reformat_mat <- as.matrix(reformat_df %>% dplyr::select(dplyr::matches("mean\\.fc")))
+  
+  rownames(reformat_mat) <- reformat_df$gene_name
+  
+  #Annotate temperature
+  temperature_anno <- 
+      as.numeric(
+          gsub("T", "", gsub("_.+", "", colnames(
+              becher_data %>% 
+                  dplyr::select(matches("mean\\.fc"))))))
+  
+  attributes(reformat_mat)$temperature <- temperature_anno
+  
+  return(reformat_mat)
+  
+}
+
+##To test individual function run the code below on a single time point:
+#RTPCA_Preprocess("earlyS", becher)
+```
+
+#Filter Criteria
+Define the protein complex of interest by listing the part of or the entire protein name. 
+```{r}
+#Exosome
+core_exosome = c("EXOSC1", "EXOSC4", "EXOSC5", "EXOSC6", "EXOSC8", "EXOSC9", "EXOSC2", "EXOSC7")
+reg_exosome = c("DIS3", "EXOSC10")
+
+filter_criteria = c(core_exosome, reg_exosome)
+```
+
+#Distance matrix functions
+Find the Residual Sum of Squares between all the proteins and then filter by specific complex of interest.
+```{r}
+Find_Distances = function(cell_cycle, preprocessed_data, complex_data, filter, match = FALSE) {
+  
+  #Filter for complex of interest
+  #complex_proteins = filter(complex_data, id == "26S Proteasome")
+  
+  #Run Tpca analysis
+  TPCA <- runTPCA(objList = list(preprocessed_data), complexAnno = complex_data)
+  plotComplexRoc(TPCA, computeAUC = TRUE)
+  
+  #Extract distance matrix and filter columns
+  if (match == TRUE) {
+    target_distance_matrix_all = data.frame(TPCA@DistMat) %>% select(ends_with(filter))
+    #Filter the rows as well
+    target_distance_matrix = select(data.frame(t(target_distance_matrix_all)), ends_with(filter)) %>% as.matrix()
+  }  else {
+    target_distance_matrix_all = data.frame(TPCA@DistMat) %>% select(contains(filter))
+    #Filter the rows as well
+    target_distance_matrix = select(data.frame(t(target_distance_matrix_all)), contains(filter)) %>% as.matrix()
+  }
+  
+  #Remove duplicates
+  target_distance_matrix[lower.tri(target_distance_matrix)] = 0
+  
+  #Transform matrix into table
+  interaction_table = melt(target_distance_matrix) %>% filter(value != 0)
+  interaction_table$stage = cell_cycle
+  colnames(interaction_table) = c("bait", "prey", "distance", "stage")
+  
+  #Add pvalue
+  ##Select only null interactions and convert to table
+  null_distance_matrix = select(data.frame(t(target_distance_matrix_all)), !contains(filter_criteria)) %>% as.matrix()
+  null_table = melt(null_distance_matrix) %>% filter(value != 0)
+  ##Derive the pvalues and add to interactions table
+  pvalues <- empPvals(stat = interaction_table$distance, stat0 = null_table$value)
+  interaction_table$pvalue = (1 - pvalues)
+  
+  return(interaction_table)
+}
+
+##To test individual function run the code below on a single time point:
+#Find_Distances("earlyS", earlyS_mat, ori_et_al_complexes_df, filter_criteria, match = TRUE)
+```
+
+#Run all functions and combine into a single DF
+Run the entire preprocessing altogether for input into the HMM model
+Note: Will take 5-10 minutes (using i7 4-core processor).
+```{r}
+CorrAnalysis.TPCA = function(time_points, data, complex_data, filter, match = FALSE) {
+  
+  output_table = data.frame()
+  
+  for (t in time_points){
+    #Preprocess data for Rtpca analysis
+    preprocess_mat = RTPCA_Preprocess(t, data)
+    
+    #Run Rptca and find the distance matrices & reformat data
+    distance_table = Find_Distances(t, preprocess_mat, complex_data, filter, match)
+    
+    #Combine matrices into single dataframe
+    output_table = bind_rows(output_table, distance_table)
+  }
+  return(output_table)
+}
+
+cell_cycle = c("G1", "earlyS", "lateS", "S_G2", "M", "asynch")
+
+TPCA_Result = CorrAnalysis.TPCA(cell_cycle, becher, ori_et_al_complexes_df, filter_criteria, match = TRUE)
+head(TPCA_Result, n=10)
+```
+
+
+**HMM Analysis**
+
+#Initialize HMM model
+Initialize the states, transitions, and emission matrix. 
+```{r}
+#Define HMM parameters
+
+##States
+states <- c("begin", "interaction", "no_interaction")
+
+##Transitions
+T_ <- matrix(c(0, 0, 0, 0.5, 0.75, 0.25, 0.5, 0.25, 0.75), nrow = 3) 
+dimnames(T_) <- list(from = states, to = states) #names columns and rows for matrix
+print(T_)
+##Emissions
+symbols = seq(from = 0.0, to = 1.0, by = 0.05)
+probs = seq(from = 0.0, to = 1.0, by = 0.05)
+probs_decrease_adjusted = probs * (1/sum(probs))
+probs_increase_adjusted = rev(probs_decrease_adjusted)
+E_ <- matrix(c(probs_increase_adjusted, probs_decrease_adjusted), 2, byrow=TRUE)
+dimnames(E_) <- list(states = states[-1], residues = symbols) 
+print(E_)
+
+#creates hmm structure
+Initial_HMM <- structure(list(A = T_, E = E_), class = "HMM")
+plot.HMM(Initial_HMM, main ="Starting HMM Model for Protein Interactions")
+```
+
+#Run HMM analysis on the initial HMM
+Run through all the proteins pairs in the complex of interest.
+Use the Viterbi algorithm and HMM to determine true or false protien interactions.
+```{r, warning=FALSE}
+#Define the time points and order to perform HMM analysis
+time_points = c("G1", "earlyS", "lateS", "S_G2", "M")
+
+#Define dataframes
+input_data = TPCA_Result
+TPCA_HMM_Result = data.frame()
+
+#Firt filter data by individual protien baits
+baits = unique(input_data$bait)
+for (i in baits) { 
+  
+  #Then filter by preys to run viterbi algorith on individual protein pairs
+  input_data_bait = filter(input_data, bait == i)
+  preys = unique(input_data_bait$prey)
+  for (j in preys) { 
+    
+    #Filter and reshape data
+    interaction_data =  filter(input_data_bait, prey == j) %>% filter(stage == time_points)
+    observations = c(as.character(round(interaction_data$pvalue, 1)))
+    
+    #Run viterbi algorithm
+    vit <- Viterbi(Initial_HMM, observations)
+    predicted <- c(TRUE, FALSE)[vit$path +1]
+    
+    #Combine and create the full output
+    interaction_data$interaction = predicted
+    TPCA_HMM_Result = bind_rows(TPCA_HMM_Result, interaction_data)
+  }
+}
+
+hist(TPCA_HMM_Result$distance, main = "Histogram of RSS input distances", xlab = "RSS")
+barplot(table(TPCA_HMM_Result$interaction), main = "HMM Determined Protien Interaction")
+head(TPCA_HMM_Result, n=10)
+
+##Save the following file to then input into Cytoscape and create the protein networks
+#write.csv(new_data, file = "exosome_hmm_ts75_tt25.csv", row.names = FALSE, quote = FALSE)
+```
+
+
+**Part 4: EM Optimization**
+
+#EM Optimization: Aphid & RTPCA Data
+Use the BaumWelch algorithm to train the emission and transition matrices. 
+```{r}
+#Create a training dataframe based on the observed data
+observed_data <- c(as.character(round(TPCA_Result$distance, 1)))
+observed_df <- data.frame(actual = c(TPCA_Result$distance))
+observed_df$binned <- ifelse(observed_df$actual > 1, '1.0', observed_df$actual) 
+train <- c(as.character(round(as.numeric(observed_df$binned, 1))))
+
+#trains hmm -- use 1 set of observations not multiple observations
+hmm_aphid <- train(Initial_HMM, train, method="BaumWelch", maxiter=500, pseudocounts="Laplace")
+
+#Plot the emission matrices from before and after the Baum-Welch training
+ggplot(data=data.frame(t(E_))) + 
+  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.05), y=interaction)) + 
+  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.05), y=interaction, color='Interaction')) +
+  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.05), y=no_interaction, )) + 
+  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.05), y=no_interaction, color='No Interaction')) +
+  ggtitle("Initialized Emissions Matrix") + 
+  labs(colour="Emission Matrix", x="Distances", y="Probability") +
+  scale_color_manual(values = c('darkorange1', 'royalblue2')) +
+  theme(legend.position="top") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(data=data.frame(t(hmm_aphid$E))) + 
+  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.05), y=interaction)) + 
+  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.05), y=interaction, color='Interaction')) +
+  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.05), y=no_interaction, )) + 
+  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.05), y=no_interaction, color='No Interaction')) +
+  ggtitle("Learned Emissions Matrix") + 
+  labs(colour="Emission Matrix", x="Distances", y="Probability") +
+  scale_color_manual(values = c('darkorange1', 'royalblue2')) +
+  theme(legend.position="top") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+#print out the table for the before and after of the transition matrices.
+Initial_Transitions = data.frame(Initial_HMM$A)
+print(Initial_Transitions)
+
+EM_Learned_Transitions = data.frame(hmm_aphid$A)
+print(EM_Learned_Transitions)
+
+```
+
