@@ -1,7 +1,11 @@
 # Protein HMM
 
-##Sample Analysis Vignette - Exosome
-Open and follow the instruction in 'TPP_HMM_Analysis_Vignette.Rmd' on the main branch. The Vignette will walk through a full analysis, including EM optimization, of the exosome protein complex. The initial input (as shown in the vignette) is "data/becher_fullCycle_reformat.csv" and the final output we recieved is 'data/exosome_hmm_result.csv'
+## Sample Analysis Vignette - Exosome
+### Requirements 
+The `TPP_HMM_Analysis_Vignette.Rmd` was run on RStudio version 1.3.1093 and R version 4.0.2. All other packages and requirements are listed in the Vigentte.
+
+### Vignette
+Open and follow the instruction in `TPP_HMM_Analysis_Vignette.Rmd` on the main branch. The Vignette will walk through a full analysis, including EM optimization, of the exosome protein complex. The initial input (as shown in the vignette) is `data/becher_fullCycle_reformat.csv` and the final output we recieved is `data/exosome_hmm_result.csv`
 
 ## Simulator
 ### Requirements 
