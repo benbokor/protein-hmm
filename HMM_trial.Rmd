@@ -36,6 +36,18 @@ psma2_df <- psma2_df[order(psma2_df$prey),] ## each 5 entries is a new prey when
 psma1_df_tpca <- tpca_data %>% filter(bait == 'PSMA1', stage != 'asynch')
 psma1_df_tpca <- psma1_df_tpca[order(psma1_df_tpca$prey),] 
 
+##exosome correlation training data
+exosc1_df <- TPP_exosome_correlations %>% filter(bait == 'EXOSC1', t!= 'asynch.median')
+exosc1_df <- exosc1_df[order(exosc1_df$prey),]
+
+exo_pval_df <- Exosome_TPCA_Distances %>% filter(stage!= 'asynch')
+exo_pval_df <- exo_pval_df[order(exo_pval_df$bait, exo_pval_df$prey),]
+
+
+exo_dist_df <- Exosome_TPCA_Distances %>% filter(stage!= 'asynch')
+exo_dist_df <- exo_pval_df[order(exo_pval_df$bait, exo_pval_df$prey),]
+
+
 # multi_obs <- paste(as.character(unlist(round(complex1_df$corr, 1))), as.character(unlist(round(complex2_df$corr, 1))), as.character(unlist(round(complex3_df$corr, 1))), as.character(unlist(round(complex4_df$corr, 1))), as.character(unlist(round(complex5_df$corr, 1))))
 
 ```
@@ -150,7 +162,6 @@ library(aphid)
 
 #train(x, y, method = "Viterbi", seqweights = NULL, wfactor = 1, maxiter = 100, deltaLL = 1e-07,
  # logspace = "autodetect", quiet = FALSE, modelend = FALSE, pseudocounts = "Laplace", ...)
-
 states <- c("begin", "interaction", "no_interaction")
 
 ### Define the transition probability matrix
@@ -179,7 +190,7 @@ dimnames(E_2) <- list(states = states[2:3], residues = symbols) #names columns a
 x_tpca <- structure(list(A = T_2, E = E_2), class = "HMM")
 
 #plots image of HMM
-plot.HMM(x2, main ="Starting HMM Model for Protein Interactions")
+#plot.HMM(x2, main ="Starting HMM Model for Protein Interactions")
 
 observed_data <- c(as.character(round(psma1_df_tpca$distance, 1)))
 observed_df <- data.frame(actual = c(psma1_df_tpca$distance))
@@ -187,7 +198,6 @@ observed_df$binned <- ifelse(observed_df$actual > 1, '1.0', observed_df$actual)
 
 tpca1_train <- c(as.character(round(as.numeric(observed_df$binned, 1))))
 
-
 #write function to loop through data and retrain model
 
 #observed_data <- c(as.character(round(complex1_df$corr, 1)))
@@ -200,8 +210,6 @@ hmm_aphid$A
 hmm_aphid$E
 
 plot.HMM(hmm_aphid, main="HMM Model After Training")
-
-
 
 hmm_tpcaE <- data.frame(t(hmm_aphid$E))
 
@@ -232,7 +240,7 @@ ggplot(data=data.frame(t(E_2))) +
 ```
 
 
-### Try learning HMM using pvalues from exosome data
+### Try learning HMM using pvalues from exosome data -- pearson correlations
 ```{r}
 #train(x, y, method = "Viterbi", seqweights = NULL, wfactor = 1, maxiter = 100, deltaLL = 1e-07,
  # logspace = "autodetect", quiet = FALSE, modelend = FALSE, pseudocounts = "Laplace", ...)
@@ -240,12 +248,22 @@ ggplot(data=data.frame(t(E_2))) +
 states <- c("begin", "interaction", "no_interaction")
 
 ### Define the transition probability matrix
-T_2 <- matrix(c(0, 0, 0, 0.5, 0.75, 0.75, 0.5, 0.25, 0.25), nrow = 3)
+T_2 <- matrix(c(0, 0, 0, 0.5, 0.5, 0.5, 0.5,0.5, 0.5), nrow = 3)
 dimnames(T_2) <- list(from = states, to = states) #names columns and rows for matrix
 
-### Define the emission probability matrix
-#Get the emission matrix for -1 to 1:
-##Observations from 0 to 1
+## emissions matrix
+
+# symbols = seq(from = 0.0, to = 1.0, by = 0.1)
+# ##set an increasing probability from  0 to 1 spread out across the 20 observations
+# probs = seq(from = 0.0, to = 1.0, by = 0.05)
+# #Normalize so the rows will sum to 1 for each state
+# probs_increase_adjusted = probs * (1/sum(probs))
+# ##get the reverse for the "no interaction" state
+# probs_decrease_adjusted = rev(probs_increase_adjusted)
+# ##Set emission matrix
+# E_ <- matrix(c(probs_increase_adjusted, probs_decrease_adjusted), 2, byrow=TRUE)
+# #E_ <- matrix(c(rep(1/21, 21), rep(1/21, 21)), nrow = 2, byrow = TRUE)
+# dimnames(E_) <- list(states = states[-1], residues = symbols) #names columns and rows for matrix 
 
 E_2 <- matrix(c(0, 1.0, 0.1, 0.9, 0.2, 0.8, 0.3, 0.7, 0.4, 0.6, 0.5, 0.5, 0.6, 0.4, 0.7, 0.3, 0.8, 0.2, 0.9, 0.1, 1.0, 0.0), nrow = 2) 
 
@@ -253,18 +271,26 @@ E_2 <- matrix(c(0, 1.0, 0.1, 0.9, 0.2, 0.8, 0.3, 0.7, 0.4, 0.6, 0.5, 0.5, 0.6, 0
 dimnames(E_2) <- list(states = c(states[3], states[2]), residues = symbols) #names columns and rows for matrix 
 
 #creates hmm structure
-x_tpca <- structure(list(A = T_2, E = E_2), class = "HMM")
+x_exo <- structure(list(A = T_2, E = E_2), class = "HMM")
 
 #plots image of HMM
-plot.HMM(x2, main ="Starting HMM Model for Protein Interactions")
+plot.HMM(x_exo, main ="Starting HMM Model for Protein Interactions")
 
-pval <- tpca_pvalue_data %>% filter(bait == 'EXOSC1', stage!= 'asynch')
-pval <- pval[order(pval$prey),]
-observed_data <- c(as.character(round(tpca_pvalue_data$pvalue, 1)))
-observed_df <- data.frame(actual = c(tpca_pvalue_data$pvalue))
-#observed_df$binned <- ifelse(observed_df$actual > 1, '1.0', observed_df$actual) 
+observed_data <- c(as.character(round(exo_pval_df$distance, 1)))
+observed_df <- data.frame(actual = c(exo_pval_df$distance))
+observed_df$norm <- as.numeric(observed_df$actual)/as.numeric(max(observed_df$actual))
 
-tpca1_train <- c(as.character(round(as.numeric(observed_df$actual, 1))))
+dist <- c(as.character(round(as.numeric(observed_df$norm, 1))))
+
+#tpca1_train <- c(as.character(round(as.numeric(observed_df$binned, 1))))
+
+# pval <- tpca_pvalue_data %>% filter(bait == 'EXOSC1', stage!= 'asynch')
+# pval <- pval[order(pval$prey),]
+# observed_data <- c(as.character(round(tpca_pvalue_data$pvalue, 1)))
+# observed_df <- data.frame(actual = c(tpca_pvalue_data$pvalue))
+# 
+# 
+# tpca1_train <- c(as.character(round(as.numeric(observed_df$actual, 1))))
 
 #write function to loop through data and retrain model
 
@@ -272,7 +298,105 @@ tpca1_train <- c(as.character(round(as.numeric(observed_df$actual, 1))))
 #dimnames(observed_data) <- list(states[1], states[1], states[1], states[0], states[0], states[1])
 
 #trains hmm -- use 1 set of observations not multiple observations
-hmm_aphid <- train(x_tpca, tpca1_train, method="BaumWelch", maxiter=500, pseudocounts="Laplace")
+hmm_aphid <- train(x_exo, dist, method="BaumWelch", logspace = FALSE, maxiter=500)
+hmm_aphid
+hmm_aphid$A
+hmm_aphid$E
+
+plot.HMM(hmm_aphid, main="HMM Model After Training")
+
+
+hmm_distE <- data.frame(t(hmm_aphid$E))
+
+ggplot(data=hmm_distE) + 
+  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4') + 
+  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), color='coral') +
+  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue') +
+  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), color='blue') +
+  ggtitle("Learned Emissions Matrix") + 
+  xlab("Correlation Values") +
+  ylab("Probabilities") + 
+  theme(legend.position="top") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# ggplot(data=data.frame(t(E_2))) + 
+#   geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4') + 
+#   geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), color='coral') +
+#   geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue') + 
+#   geom_line(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=no_interaction), color='blue') +
+#   ggtitle("Initialized Emissions Matrix") + 
+#   xlab("Correlation Values") +
+#   ylab("Probabilities") + 
+#   theme(legend.position="top") +
+#   theme_classic() +
+#   theme(plot.title = element_text(hjust = 0.5))
+
+hist(exo_df$corr)
+
+
+
+hist(Exosome_TPCA_Distances$distance, xlab='Distance', main = "Distribution of Exosome Distances")
+
+hist(Exosome_TPCA_Distances$pvalue)
+
+```
+
+## pvalues on exosome data 
+```{r}
+#train(x, y, method = "Viterbi", seqweights = NULL, wfactor = 1, maxiter = 100, deltaLL = 1e-07,
+ # logspace = "autodetect", quiet = FALSE, modelend = FALSE, pseudocounts = "Laplace", ...)
+
+states <- c("begin", "interaction", "no_interaction")
+
+### Define the transition probability matrix
+T_2 <- matrix(c(0, 0, 0, 0.5, 0.5, 0.5, 0.5,0.5, 0.5), nrow = 3)
+dimnames(T_2) <- list(from = states, to = states) #names columns and rows for matrix
+
+## emissions matrix
+
+symbols = seq(from = 0.0, to = 1.0, by = 0.1)
+# ##set an increasing probability from  0 to 1 spread out across the 20 observations
+# probs = seq(from = 0.0, to = 1.0, by = 0.05)
+# #Normalize so the rows will sum to 1 for each state
+# probs_increase_adjusted = probs * (1/sum(probs))
+# ##get the reverse for the "no interaction" state
+# probs_decrease_adjusted = rev(probs_increase_adjusted)
+# ##Set emission matrix
+# E_ <- matrix(c(probs_increase_adjusted, probs_decrease_adjusted), 2, byrow=TRUE)
+# #E_ <- matrix(c(rep(1/21, 21), rep(1/21, 21)), nrow = 2, byrow = TRUE)
+# dimnames(E_) <- list(states = states[-1], residues = symbols) #names columns and rows for matrix 
+
+E_2 <- matrix(c(0, 1.0, 0.1, 0.9, 0.2, 0.8, 0.3, 0.7, 0.4, 0.6, 0.5, 0.5, 0.6, 0.4, 0.7, 0.3, 0.8, 0.2, 0.9, 0.1, 1.0, 0.0), nrow = 2) 
+dimnames(E_2) <- list(states = c(states[3], states[2]), residues = symbols) #names columns and rows for matrix 
+
+#creates hmm structure
+x_exo <- structure(list(A = T_2, E = E_2), class = "HMM")
+
+#plots image of HMM
+plot.HMM(x_exo, main ="Starting HMM Model for Protein Interactions")
+
+observed_data <- c(as.character(round(exo_pval_df$corr, 1)))
+#observed_df <- data.frame(actual = c(exosc1_df$cor))
+#observed_df$binned <- ifelse(observed_df$actual > 1, '1.0', observed_df$actual) 
+
+#tpca1_train <- c(as.character(round(as.numeric(observed_df$binned, 1))))
+
+# pval <- tpca_pvalue_data %>% filter(bait == 'EXOSC1', stage!= 'asynch')
+# pval <- pval[order(pval$prey),]
+# observed_data <- c(as.character(round(tpca_pvalue_data$pvalue, 1)))
+# observed_df <- data.frame(actual = c(tpca_pvalue_data$pvalue))
+# 
+# 
+# tpca1_train <- c(as.character(round(as.numeric(observed_df$actual, 1))))
+
+#write function to loop through data and retrain model
+
+#observed_data <- c(as.character(round(complex1_df$corr, 1)))
+#dimnames(observed_data) <- list(states[1], states[1], states[1], states[0], states[0], states[1])
+
+#trains hmm -- use 1 set of observations not multiple observations
+hmm_aphid <- train(x_exo, observed_data, method="BaumWelch", maxiter=500, pseudocounts="Laplace")
 hmm_aphid
 hmm_aphid$A
 hmm_aphid$E
@@ -284,8 +408,8 @@ hmm_tpcaE <- data.frame(t(hmm_aphid$E))
 
 ggplot(data=hmm_tpcaE) + 
   geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4') + 
-  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), color='coral') +
-  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue') + 
+  geom_line(aes(x = seq(from =0.0, to = 1.0, by = 0.1), y=interaction), color='coral') +
+  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue') +
   geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), color='blue') +
   ggtitle("Learned Emissions Matrix") + 
   xlab("Correlation Values") +
@@ -294,32 +418,39 @@ ggplot(data=hmm_tpcaE) +
   theme_classic() +
   theme(plot.title = element_text(hjust = 0.5))
 
-ggplot(data=data.frame(t(E_2))) + 
-  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4') + 
-  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), color='coral') +
-  geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue') + 
-  geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), color='blue') +
-  ggtitle("Initialized Emissions Matrix") + 
-  xlab("Correlation Values") +
-  ylab("Probabilities") + 
-  theme(legend.position="top") +
-  theme_classic() +
-  theme(plot.title = element_text(hjust = 0.5))
+# ggplot(data=data.frame(t(E_2))) + 
+#   geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), fill='coral1',color='coral4') + 
+#   geom_line(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=interaction), color='coral') +
+#   geom_point(aes(x = seq(from = 0.0, to = 1.0, by = 0.1), y=no_interaction), fill='cornflowerblue', color='darkslateblue') + 
+#   geom_line(aes(x = seq(from = -1.0, to = 1.0, by = 0.1), y=no_interaction), color='blue') +
+#   ggtitle("Initialized Emissions Matrix") + 
+#   xlab("Correlation Values") +
+#   ylab("Probabilities") + 
+#   theme(legend.position="top") +
+#   theme_classic() +
+#   theme(plot.title = element_text(hjust = 0.5))
+
+hist(exo_df$corr)
+
+
+
+hist(Exosome_TPCA_Distances$distance)
+
+hist(Exosome_TPCA_Distances$pvalue)
+
 ```
 
 
-
-
 ```{r}
-x <- seq(0, 0.5, by=0.01)
+x <- seq(0, 0.6, by=0.01)
 noncor <- dnorm(x, mean= mean(x), sd(x) )
-x2 <- seq(0.3, 1.0, by=0.01)
+x2 <- seq(0.2, 1.0, by=0.01)
 cor <- dnorm(x2, mean=mean(x2), sd(x2))
 
 ggplot() +
   geom_line(aes(x, noncor), fill='cornflowerblue', color='darkslateblue') +
   geom_line(aes(x2, cor),color='coral3') +
-  geom_vline(xintercept= .44, col = 'red') +
+  geom_vline(xintercept= .47, col = 'red') +
   xlab("Correlation") +
   ylab("") +
   theme_classic() +
