@@ -19,7 +19,7 @@ library(HMM)
 data <- read.table('./data/TPP_proteasome_correlations.csv', sep=',', header = TRUE)
 summary(data)
 
-tpca_data <- read.table('~/Downloads/Proteasome_TPCA_Result.csv', sep=',', header =TRUE)
+tpca_data <- read.table('./data/Proteasome_TPCA_Result.csv', sep=',', header =TRUE)
 summary (tpca_data)
 ```
 
@@ -37,7 +37,6 @@ psma1_df_tpca <- tpca_data %>% filter(bait == 'PSMA1', stage != 'asynch')
 psma1_df_tpca <- psma1_df_tpca[order(psma1_df_tpca$prey),] 
 
 # multi_obs <- paste(as.character(unlist(round(complex1_df$corr, 1))), as.character(unlist(round(complex2_df$corr, 1))), as.character(unlist(round(complex3_df$corr, 1))), as.character(unlist(round(complex4_df$corr, 1))), as.character(unlist(round(complex5_df$corr, 1))))
-
 ```
 
 
