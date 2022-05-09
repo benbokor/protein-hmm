@@ -97,9 +97,6 @@ class Simulator():
 
         return self.data
 
-    def generate_data_new(self):
-        pass
-
     def calculate_correlations(self):
         if self.data is None:
             return "Error: No data generated, please run generate_data_old() first"
