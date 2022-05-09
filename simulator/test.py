@@ -47,6 +47,55 @@ class TestSimulator(unittest.TestCase):
         self.assertEqual(len(corr), 6)
         self.assertGreater(corr[1], corr[4])
 
+    def test_calculate_distances(self):
+        kwargs = {
+            "shape":(6,6),                      
+            "sample_noise_dist": "uniform",     
+            "signal_func_type": "sigmoid",      
+            "noise_func_type": "sigmoid",
+            "correlation_type": "pearson"
+        }
+        sim = simulator.Simulator(**kwargs)
+        sim.set_timepoints([0,1,1,0,0,0])
+        sim.generate_data()
+        distances = sim.calculate_distances()
+
+        # Add better assertions if time permits
+        self.assertIsNotNone(distances)
+
+    def test_sample_correlations(self):
+        kwargs = {
+            "shape":(6,6),                      
+            "sample_noise_dist": "uniform",     
+            "signal_func_type": "sigmoid",      
+            "noise_func_type": "sigmoid",
+            "correlation_type": "pearson"
+        }
+        sim = simulator.Simulator(**kwargs)
+        sim.set_timepoints([0,1,1,0,0,0])
+        sim.generate_data()
+        correlations = sim.sample_correlations()
+
+        # Add better assertions if time permits
+        self.assertIsNotNone(correlations)
+
+    def test_sample_distances(self):
+        kwargs = {
+            "shape":(6,6),                      
+            "sample_noise_dist": "uniform",     
+            "signal_func_type": "sigmoid",      
+            "noise_func_type": "sigmoid",
+            "correlation_type": "pearson"
+        }
+        sim = simulator.Simulator(**kwargs)
+        sim.set_timepoints([0,1,1,0,0,0])
+        sim.generate_data()
+        distances = sim.sample_distances()
+
+        # Add better assertions if time permits
+        self.assertIsNotNone(distances)
+
+
 
 if __name__ == '__main__':
     unittest.main()
